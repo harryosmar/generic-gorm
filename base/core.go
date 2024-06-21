@@ -1,0 +1,371 @@
+package base
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	generic_gorm "github.com/harryosmar/generic-gorm"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+)
+
+type TablerWithPrimaryKey interface {
+	TableName() string
+	PrimaryKey() string
+}
+
+type Paginator struct {
+	Page    int
+	PerPage int
+	Total   int
+}
+
+type OrderBy struct {
+	Field     string
+	Direction string // asc, desc
+}
+
+func (o OrderBy) String() string {
+	if o.Field != "" && (o.Direction == "asc" || o.Direction == "desc") {
+		return fmt.Sprintf("%s %s", o.Field, o.Direction)
+	}
+
+	return ""
+}
+
+type BaseGorm[T TablerWithPrimaryKey, PkType string | int64 | int32 | int] struct {
+	db *gorm.DB
+}
+
+func NewBaseGorm[T TablerWithPrimaryKey, PkType string | int64 | int32 | int](db *gorm.DB) *BaseGorm[T, PkType] {
+	return &BaseGorm[T, PkType]{db: db}
+}
+
+func (o *BaseGorm[T, PkType]) Detail(ctx context.Context, id PkType) (*T, error) {
+	var (
+		db       = o.db.WithContext(ctx)
+		row      T
+		logEntry = generic_gorm.GetLoggerFromContext(ctx)
+		err      error
+	)
+
+	defer func() {
+		if err != nil {
+			logEntry.Error(err)
+		}
+	}()
+
+	db = db.
+		Table(row.TableName()).
+		Where(
+			fmt.Sprintf(
+				"%s = ?",
+				row.PrimaryKey(),
+			),
+			id,
+		)
+
+	if err = db.First(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &row, nil
+}
+
+type Where struct {
+	Name             string
+	IsLike           bool // use "%keyword%" : WHERE name LIKE '%ware%'
+	IsFullTextSearch bool // use "*keyword*" : WHERE MATCH(name) AGAINST ('*ware*' IN BOOLEAN MODE) : To fully optimize this, create index "FULLTEXT KEY `idx_fulltext_columName` (`columName`)"
+	Value            interface{}
+}
+
+func (c *Where) String() string {
+	whereSql := fmt.Sprintf("%s = ?", c.Name)
+	if c.IsFullTextSearch {
+		whereSql = fmt.Sprintf("MATCH(%s) AGAINST (? IN BOOLEAN MODE)", c.Name)
+	} else if c.IsLike {
+		whereSql = fmt.Sprintf("%s LIKE ?", c.Name)
+	}
+
+	return whereSql
+}
+
+func (o *BaseGorm[T, PkType]) Wheres(ctx context.Context, wheres []Where) (*T, error) {
+	var (
+		logEntry = generic_gorm.GetLoggerFromContext(ctx)
+		row      T
+		db       = o.db.WithContext(ctx).Table(row.TableName())
+		err      error
+	)
+
+	defer func() {
+		if err != nil {
+			logEntry.Error(err)
+		}
+	}()
+
+	for _, v := range wheres {
+		db.Where(v.String(), v.Value)
+	}
+
+	if err = db.First(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &row, nil
+}
+
+func (o *BaseGorm[T, PkType]) WheresList(ctx context.Context, orders []OrderBy, wheres []Where) ([]T, error) {
+	var (
+		logEntry = generic_gorm.GetLoggerFromContext(ctx)
+		e        T
+		db       = o.db.WithContext(ctx).Table(e.TableName())
+		rows     []T
+		err      error
+	)
+
+	defer func() {
+		if err != nil {
+			logEntry.Error(err)
+		}
+	}()
+
+	for _, v := range wheres {
+		db.Where(v.String(), v.Value)
+	}
+
+	for _, order := range orders {
+		orderByStr := order.String()
+		if orderByStr != "" {
+			db.Order(orderByStr)
+		}
+	}
+
+	if err = db.Find(&rows).Error; err != nil {
+		return rows, err
+	}
+
+	return rows, nil
+}
+
+func (o *BaseGorm[T, PkType]) List(ctx context.Context, page int, pageSize int, orders []OrderBy, wheres []Where) ([]T, *Paginator, error) {
+	var (
+		logEntry  = generic_gorm.GetLoggerFromContext(ctx)
+		e         T
+		db        = o.db.WithContext(ctx).Table(e.TableName())
+		rows      []T
+		count     int64
+		err       error
+		paginator = &Paginator{
+			Page:    page,
+			PerPage: pageSize,
+			Total:   0,
+		}
+	)
+
+	defer func() {
+		if err != nil {
+			logEntry.Error(err)
+		}
+	}()
+
+	for _, v := range wheres {
+		db.Where(v.String(), v.Value)
+	}
+
+	for _, order := range orders {
+		orderByStr := order.String()
+		if orderByStr != "" {
+			db.Order(orderByStr)
+		}
+	}
+
+	if err = db.Count(&count).Error; err != nil {
+		return rows, nil, err
+	}
+
+	paginator.Total = int(count)
+	if count == 0 {
+		return rows, paginator, nil
+	}
+
+	if err = db.Offset((page - 1) * pageSize).Limit(pageSize).Find(&rows).Error; err != nil {
+		return rows, paginator, err
+	}
+
+	return rows, paginator, nil
+}
+
+func (o *BaseGorm[T, PkType]) Create(ctx context.Context, row *T) (*T, error) {
+	var (
+		e        T
+		db       = o.db.WithContext(ctx).Table(e.TableName())
+		logEntry = generic_gorm.GetLoggerFromContext(ctx)
+		err      error
+	)
+
+	defer func() {
+		if err != nil {
+			logEntry.Error(err)
+		}
+	}()
+
+	// cannot handle upsert will get err Duplicate entry
+	if err = db.Create(row).Error; err != nil {
+		return nil, err
+	}
+
+	return row, nil
+}
+
+func (o *BaseGorm[T, PkType]) CreateMultiple(ctx context.Context, rows []*T) ([]*T, int64, error) {
+	var (
+		rowsAffected int64
+	)
+
+	if len(rows) == 0 {
+		return rows, rowsAffected, nil
+	}
+
+	var (
+		e        T
+		db       = o.db.WithContext(ctx).Table(e.TableName())
+		logEntry = generic_gorm.GetLoggerFromContext(ctx)
+		err      error
+	)
+
+	defer func() {
+		if err != nil {
+			logEntry.Error(err)
+		}
+	}()
+
+	result := db.Create(rows)
+	err = result.Error
+	rowsAffected = result.RowsAffected
+
+	return rows, rowsAffected, err
+}
+
+func (o *BaseGorm[T, PkType]) Update(ctx context.Context, row *T, updatedColumns []string) (int64, error) {
+	var (
+		e        T
+		db       = o.db.WithContext(ctx).Table(e.TableName())
+		logEntry = generic_gorm.GetLoggerFromContext(ctx)
+		err      error
+	)
+
+	defer func() {
+		if err != nil {
+			logEntry.Error(err)
+		}
+	}()
+
+	if len(updatedColumns) > 0 {
+		db.Select(updatedColumns)
+	}
+	result := db.Updates(&row)
+
+	return result.RowsAffected, result.Error
+}
+
+func (o *BaseGorm[T, PkType]) UpdateWhere(ctx context.Context, wheres []Where, values map[string]interface{}) (int64, error) {
+	var (
+		e        T
+		db       = o.db.WithContext(ctx).Table(e.TableName())
+		logEntry = generic_gorm.GetLoggerFromContext(ctx)
+		err      error
+	)
+
+	defer func() {
+		if err != nil {
+			logEntry.Error(err)
+		}
+	}()
+
+	for _, v := range wheres {
+		db.Where(v.String(), v.Value)
+	}
+	result := db.Updates(values)
+
+	return result.RowsAffected, result.Error
+}
+
+func (o *BaseGorm[T, PkType]) Upsert(ctx context.Context, row *T, onConflictUpdatedColumns []string) (int64, error) {
+	var (
+		e        T
+		db       = o.db.WithContext(ctx).Table(e.TableName())
+		logEntry = generic_gorm.GetLoggerFromContext(ctx)
+		err      error
+	)
+
+	defer func() {
+		if err != nil {
+			logEntry.Error(err)
+		}
+	}()
+
+	result := db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{},
+		DoUpdates: clause.AssignmentColumns(onConflictUpdatedColumns),
+	}).Create(&row)
+
+	return result.RowsAffected, result.Error
+}
+
+type ListCustomCallback = func(*gorm.DB) *gorm.DB
+
+func (o *BaseGorm[T, PkType]) ListCustom(ctx context.Context, page int, pageSize int, orders []OrderBy, wheres []Where, customCallback ListCustomCallback) ([]T, *Paginator, error) {
+	var (
+		logEntry  = generic_gorm.GetLoggerFromContext(ctx)
+		db        = o.db.WithContext(ctx)
+		rows      []T
+		count     int64
+		err       error
+		paginator = &Paginator{
+			Page:    page,
+			PerPage: pageSize,
+			Total:   0,
+		}
+	)
+
+	defer func() {
+		if err != nil {
+			logEntry.Error(err)
+		}
+	}()
+
+	db = customCallback(db)
+
+	for _, v := range wheres {
+		db.Where(v.String(), v.Value)
+	}
+
+	for _, order := range orders {
+		orderByStr := order.String()
+		if orderByStr != "" {
+			db.Order(orderByStr)
+		}
+	}
+
+	if err = db.Count(&count).Error; err != nil {
+		return rows, nil, err
+	}
+
+	paginator.Total = int(count)
+	if count == 0 {
+		return rows, paginator, nil
+	}
+
+	if err = db.Offset((page - 1) * pageSize).Limit(pageSize).Find(&rows).Error; err != nil {
+		return rows, paginator, err
+	}
+
+	return rows, paginator, nil
+}

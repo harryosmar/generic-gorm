@@ -37,16 +37,16 @@ func NewMySQLDummyRepository(db *gorm.DB) *MySQLDummyRepository {
 }
 
 
-// Create MySQLDummyRepository with inherited methods from ./base/core.go :
-Gorm with generic with methods :
-//- (o *BaseGorm[T, PkType]) Detail(ctx context.Context, id PkType) (*T, error)
-//- (o *BaseGorm[T, PkType]) Wheres(ctx context.Context, wheres []Where)
-//- (o *BaseGorm[T, PkType]) WheresList(ctx context.Context, orders []OrderBy, wheres []Where) ([]T, error)
-//- (o *BaseGorm[T, PkType]) List(ctx context.Context, page int, pageSize int, orders []OrderBy, wheres []Where) ([]T, *Paginator, error)
-//- (o *BaseGorm[T, PkType]) Create(ctx context.Context, row *T) (*T, error)
-//- (o *BaseGorm[T, PkType]) CreateMultiple(ctx context.Context, rows []*T) ([]*T, int64, error)
-//- (o *BaseGorm[T, PkType]) Update(ctx context.Context, row *T, updatedColumns []string) (int64, error)
-//- (o *BaseGorm[T, PkType]) UpdateWhere(ctx context.Context, wheres []Where, values map[string]interface{}) (int64, error)
-//- (o *BaseGorm[T, PkType]) Upsert(ctx context.Context, row *T, onConflictUpdatedColumns []string) (int64, error)
-//- (o *BaseGorm[T, PkType]) ListCustom(ctx context.Context, page int, pageSize int, orders []OrderBy, wheres []Where, customCallback ListCustomCallback) ([]T, *Paginator, error)
+//  Create MySQLDummyRepository with inherited methods from ./base/core.go :
+//  Gorm with generic with methods :
+//      - (o *BaseGorm[T, PkType]) Detail(ctx context.Context, id PkType) (*T, error)
+//      - (o *BaseGorm[T, PkType]) Wheres(ctx context.Context, wheres []Where)
+//      - (o *BaseGorm[T, PkType]) WheresList(ctx context.Context, orders []OrderBy, wheres []Where) ([]T, error)
+//      - (o *BaseGorm[T, PkType]) List(ctx context.Context, page int, pageSize int, orders []OrderBy, wheres []Where) ([]T, *Paginator, error)
+//      - (o *BaseGorm[T, PkType]) Create(ctx context.Context, row *T) (*T, error)
+//      - (o *BaseGorm[T, PkType]) CreateMultiple(ctx context.Context, rows []*T) ([]*T, int64, error)
+//      - (o *BaseGorm[T, PkType]) Update(ctx context.Context, row *T, updatedColumns []string) (int64, error)
+//      - (o *BaseGorm[T, PkType]) UpdateWhere(ctx context.Context, wheres []Where, values map[string]interface{}) (int64, error)
+//      - (o *BaseGorm[T, PkType]) Upsert(ctx context.Context, row *T, onConflictUpdatedColumns []string) (int64, error)
+//      - (o *BaseGorm[T, PkType]) ListCustom(ctx context.Context, page int, pageSize int, orders []OrderBy, wheres []Where, customCallback ListCustomCallback) ([]T, *Paginator, error)
 ```

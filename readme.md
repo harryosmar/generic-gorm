@@ -1,5 +1,6 @@
 # Gorm(Golang ORM) with generic features
 
+[![Latest Version](https://img.shields.io/github/release/harryosmar/generic-gorm.svg?style=flat-square)](https://github.com/harryosmar/generic-gorm/releases)
 
 ## Create entities
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	generic_gorm "github.com/harryosmar/generic-gorm"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -33,11 +34,11 @@ func (o OrderBy) String() string {
 	return ""
 }
 
-type BaseGorm[T TablerWithPrimaryKey, PkType string | int64 | int32 | int] struct {
+type BaseGorm[T TablerWithPrimaryKey, PkType string | int64 | int32 | int | uint] struct {
 	db *gorm.DB
 }
 
-func NewBaseGorm[T TablerWithPrimaryKey, PkType string | int64 | int32 | int](db *gorm.DB) *BaseGorm[T, PkType] {
+func NewBaseGorm[T TablerWithPrimaryKey, PkType string | int64 | int32 | int | uint](db *gorm.DB) *BaseGorm[T, PkType] {
 	return &BaseGorm[T, PkType]{db: db}
 }
 
@@ -268,11 +269,14 @@ func (o *BaseGorm[T, PkType]) Update(ctx context.Context, row *T, updatedColumns
 	}()
 
 	if len(updatedColumns) > 0 {
-		db.Select(updatedColumns)
+		db = db.Select(updatedColumns)
 	}
-	result := db.Updates(&row)
 
-	return result.RowsAffected, result.Error
+	// Use the model to get the correct table and add WHERE clause for the primary key
+	result := db.Model(row).Updates(row)
+	err = result.Error
+
+	return result.RowsAffected, err
 }
 
 func (o *BaseGorm[T, PkType]) UpdateWhere(ctx context.Context, wheres []Where, values map[string]interface{}) (int64, error) {
@@ -289,12 +293,22 @@ func (o *BaseGorm[T, PkType]) UpdateWhere(ctx context.Context, wheres []Where, v
 		}
 	}()
 
+	// Build where clauses
 	for _, v := range wheres {
-		db.Where(v.String(), v.Value)
+		if v.IsLike {
+			db = db.Where(fmt.Sprintf("%s LIKE ?", v.Name), fmt.Sprintf("%%%v%%", v.Value))
+		} else if v.IsFullTextSearch {
+			db = db.Where(fmt.Sprintf("MATCH(%s) AGAINST(? IN BOOLEAN MODE)", v.Name), v.Value)
+		} else {
+			db = db.Where(fmt.Sprintf("%s = ?", v.Name), v.Value)
+		}
 	}
-	result := db.Updates(values)
 
-	return result.RowsAffected, result.Error
+	// Execute update
+	result := db.Updates(values)
+	err = result.Error
+
+	return result.RowsAffected, err
 }
 
 func (o *BaseGorm[T, PkType]) Upsert(ctx context.Context, row *T, onConflictUpdatedColumns []string) (int64, error) {
@@ -368,4 +382,32 @@ func (o *BaseGorm[T, PkType]) ListCustom(ctx context.Context, page int, pageSize
 	}
 
 	return rows, paginator, nil
+}
+
+func (o *BaseGorm[T, PkType]) Association(ctx context.Context, model *T, field string) *gorm.Association {
+	return o.db.WithContext(ctx).Model(model).Association(field)
+}
+
+func (o *BaseGorm[T, PkType]) AppendAssociation(ctx context.Context, model *T, field string, values interface{}) error {
+	return o.Association(ctx, model, field).Append(values)
+}
+
+func (o *BaseGorm[T, PkType]) ReplaceAssociation(ctx context.Context, model *T, field string, values interface{}) error {
+	return o.Association(ctx, model, field).Replace(values)
+}
+
+func (o *BaseGorm[T, PkType]) DeleteAssociation(ctx context.Context, model *T, field string, values interface{}) error {
+	return o.Association(ctx, model, field).Delete(values)
+}
+
+func (o *BaseGorm[T, PkType]) ClearAssociation(ctx context.Context, model *T, field string) error {
+	return o.Association(ctx, model, field).Clear()
+}
+
+func (o *BaseGorm[T, PkType]) CountAssociation(ctx context.Context, model *T, field string) int64 {
+	return o.Association(ctx, model, field).Count()
+}
+
+func (o *BaseGorm[T, PkType]) FindAssociation(ctx context.Context, model *T, field string, dest interface{}) error {
+	return o.Association(ctx, model, field).Find(dest)
 }

@@ -225,6 +225,10 @@ func (o *BaseGorm[T, PkType]) Create(ctx context.Context, row *T) (*T, error) {
 	return row, nil
 }
 
+func (o *BaseGorm[T, PkType]) DB(ctx context.Context) *gorm.DB {
+	return o.db.WithContext(ctx)
+}
+
 func (o *BaseGorm[T, PkType]) CreateMultiple(ctx context.Context, rows []*T) ([]*T, int64, error) {
 	var (
 		rowsAffected int64

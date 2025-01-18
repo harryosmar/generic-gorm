@@ -80,7 +80,7 @@ func (o *BaseGorm[T, PkType]) Detail(ctx context.Context, id PkType) (*T, error)
 type Where struct {
 	Name             string      `json:"name"`
 	IsLike           bool        `json:"is_like"`             // use "%keyword%" : WHERE name LIKE '%ware%'
-	IsFullTextSearch bool        `json:"is_full_text_search"` // use "*keyword*" : WHERE MATCH(name) AGAINST ('*ware*' IN BOOLEAN MODE) : To fully optimize this, create index "FULLTEXT KEY `idx_fulltext_columName` (`columName`)"
+	IsFullTextSearch bool        `json:"is_full_text_search"` // use "*keyword*" : WHERE MATCH(name) AGAINST ('*ware*' IN BOOLEAN MODE) : To fully optimize this, create index "FULLTEXT KEY `idx_fulltext_columName` (`columName`)", read also about stopwords https://dev.mysql.com/doc/refman/8.4/en/fulltext-stopwords.html
 	Value            interface{} `json:"value"`
 }
 

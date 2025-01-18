@@ -165,6 +165,9 @@ func (o *BaseGorm[T, PkType]) WheresList(ctx context.Context, orders []OrderBy, 
 	}()
 
 	for _, v := range wheres {
+		if v.IsLike {
+			v.Value = fmt.Sprintf("%%%s%%", v.Value)
+		}
 		db.Where(v.String(), v.Value)
 	}
 
@@ -204,6 +207,9 @@ func (o *BaseGorm[T, PkType]) List(ctx context.Context, page int, pageSize int, 
 	}()
 
 	for _, v := range wheres {
+		if v.IsLike {
+			v.Value = fmt.Sprintf("%%%s%%", v.Value)
+		}
 		db.Where(v.String(), v.Value)
 	}
 
@@ -327,12 +333,9 @@ func (o *BaseGorm[T, PkType]) UpdateWhere(ctx context.Context, wheres []Where, v
 	// Build where clauses
 	for _, v := range wheres {
 		if v.IsLike {
-			db = db.Where(fmt.Sprintf("%s LIKE ?", v.Name), fmt.Sprintf("%%%v%%", v.Value))
-		} else if v.IsFullTextSearch {
-			db = db.Where(fmt.Sprintf("MATCH(%s) AGAINST(? IN BOOLEAN MODE)", v.Name), v.Value)
-		} else {
-			db = db.Where(fmt.Sprintf("%s = ?", v.Name), v.Value)
+			v.Value = fmt.Sprintf("%%%s%%", v.Value)
 		}
+		db.Where(v.String(), v.Value)
 	}
 
 	// Execute update
@@ -389,6 +392,9 @@ func (o *BaseGorm[T, PkType]) ListCustom(ctx context.Context, page int, pageSize
 	db = customCallback(db)
 
 	for _, v := range wheres {
+		if v.IsLike {
+			v.Value = fmt.Sprintf("%%%s%%", v.Value)
+		}
 		db.Where(v.String(), v.Value)
 	}
 

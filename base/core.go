@@ -2,6 +2,7 @@ package base
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -81,6 +82,27 @@ type Where struct {
 	IsLike           bool // use "%keyword%" : WHERE name LIKE '%ware%'
 	IsFullTextSearch bool // use "*keyword*" : WHERE MATCH(name) AGAINST ('*ware*' IN BOOLEAN MODE) : To fully optimize this, create index "FULLTEXT KEY `idx_fulltext_columName` (`columName`)"
 	Value            interface{}
+}
+
+// UnmarshalJSON Custom for the Where struct
+func (w *Where) UnmarshalJSON(data []byte) error {
+	type Alias Where
+	aux := &struct {
+		IsFullTextSearch string `json:"is_full_text_search"` // Treat as string initially
+		*Alias
+	}{
+		Alias: (*Alias)(w), // Embed the original struct
+	}
+
+	// Unmarshal JSON into the temporary struct
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+
+	// Convert string "1" to boolean true for IsFullTextSearch
+	w.IsFullTextSearch = aux.IsFullTextSearch == "1" || aux.IsFullTextSearch == "true"
+
+	return nil
 }
 
 func (c *Where) String() string {

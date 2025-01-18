@@ -89,6 +89,7 @@ func (w *Where) UnmarshalJSON(data []byte) error {
 	type Alias Where
 	aux := &struct {
 		IsFullTextSearch string `json:"is_full_text_search"` // Treat as string initially
+		IsLike           string `json:"is_like"`             // Treat as string initially
 		*Alias
 	}{
 		Alias: (*Alias)(w), // Embed the original struct
@@ -101,6 +102,7 @@ func (w *Where) UnmarshalJSON(data []byte) error {
 
 	// Convert string "1" to boolean true for IsFullTextSearch
 	w.IsFullTextSearch = aux.IsFullTextSearch == "1" || aux.IsFullTextSearch == "true"
+	w.IsLike = aux.IsLike == "1" || aux.IsLike == "true"
 
 	return nil
 }

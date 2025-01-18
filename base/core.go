@@ -112,7 +112,7 @@ func (c *Where) String() string {
 	if c.IsFullTextSearch {
 		whereSql = fmt.Sprintf("MATCH(%s) AGAINST (? IN BOOLEAN MODE)", c.Name)
 	} else if c.IsLike {
-		whereSql = fmt.Sprintf("%s LIKE ?", fmt.Sprintf("%%s%", c.Name))
+		whereSql = fmt.Sprintf("%s LIKE ?", c.Name)
 	}
 
 	return whereSql
@@ -133,6 +133,9 @@ func (o *BaseGorm[T, PkType]) Wheres(ctx context.Context, wheres []Where) (*T, e
 	}()
 
 	for _, v := range wheres {
+		if v.IsLike {
+			v.Value = fmt.Sprintf("%%%s%%", v.Value)
+		}
 		db.Where(v.String(), v.Value)
 	}
 

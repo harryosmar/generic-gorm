@@ -17,14 +17,14 @@ type TablerWithPrimaryKey interface {
 }
 
 type Paginator struct {
-	Page    int
-	PerPage int
-	Total   int
+	Page    int `json:"page"`
+	PerPage int `json:"per_page"`
+	Total   int `json:"total"`
 }
 
 type OrderBy struct {
-	Field     string
-	Direction string // asc, desc
+	Field     string `json:"field"`
+	Direction string `json:"direction"` // asc, desc
 }
 
 func (o OrderBy) String() string {
@@ -78,10 +78,10 @@ func (o *BaseGorm[T, PkType]) Detail(ctx context.Context, id PkType) (*T, error)
 }
 
 type Where struct {
-	Name             string
-	IsLike           bool // use "%keyword%" : WHERE name LIKE '%ware%'
-	IsFullTextSearch bool // use "*keyword*" : WHERE MATCH(name) AGAINST ('*ware*' IN BOOLEAN MODE) : To fully optimize this, create index "FULLTEXT KEY `idx_fulltext_columName` (`columName`)"
-	Value            interface{}
+	Name             string      `json:"name"`
+	IsLike           bool        `json:"is_like"`             // use "%keyword%" : WHERE name LIKE '%ware%'
+	IsFullTextSearch bool        `json:"is_full_text_search"` // use "*keyword*" : WHERE MATCH(name) AGAINST ('*ware*' IN BOOLEAN MODE) : To fully optimize this, create index "FULLTEXT KEY `idx_fulltext_columName` (`columName`)"
+	Value            interface{} `json:"value"`
 }
 
 // UnmarshalJSON Custom for the Where struct
